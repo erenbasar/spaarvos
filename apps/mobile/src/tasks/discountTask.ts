@@ -25,26 +25,37 @@ TaskManager.defineTask(DISCOUNT_TASK, async () => {
       ...products.map((p) => searchAHBonus(p)),
     ]);
 
-    const matches: string[] = [];
+    // { product -> Set<market> }
+    const matchMap: Record<string, Set<string>> = {};
 
     products.forEach((product, i) => {
       const ahBonus = ahResults[i];
-      if (ahBonus && ahBonus.length > 0) matches.push(product);
-
+      if (ahBonus && ahBonus.length > 0) {
+        if (!matchMap[product]) matchMap[product] = new Set();
+        matchMap[product].add('Albert Heijn');
+      }
       const lower = product.toLowerCase();
       const dirkMatch = dirkItems.some((d) => d.name.toLowerCase().includes(lower));
-      if (dirkMatch && !matches.includes(product)) matches.push(product);
+      if (dirkMatch) {
+        if (!matchMap[product]) matchMap[product] = new Set();
+        matchMap[product].add('Dirk');
+      }
     });
 
-    if (matches.length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
+    if (Object.keys(matchMap).length === 0) return BackgroundFetch.BackgroundFetchResult.NoData;
+
+    // Build readable lines: "Melk bij Albert Heijn & Dirk"
+    const lines = Object.entries(matchMap).map(
+      ([product, markets]) => `${product} bij ${[...markets].join(' & ')}`
+    );
 
     await Notifications.scheduleNotificationAsync({
       content: {
         title: '🦊 Spaarvos — Aanbieding!',
-        body: `${matches.join(', ')} ${matches.length === 1 ? 'staat' : 'staan'} in de aanbieding!`,
+        body: lines.join('\n'),
         sound: true,
       },
-      trigger: null, // immediate
+      trigger: null,
     });
 
     await AsyncStorage.setItem(LAST_NOTIFIED_KEY, today);

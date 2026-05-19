@@ -160,9 +160,14 @@ export default function DiscountsScreen() {
 function DiscountCard({ item }: { item: DiscountMatch }) {
   const hasDiscount = item.priceBeforeBonus != null && item.priceBeforeBonus > item.currentPrice;
   const savings = hasDiscount ? (item.priceBeforeBonus! - item.currentPrice).toFixed(2) : null;
+  const marketColor = MARKET_COLORS[item.market] ?? '#888';
 
   return (
     <View style={styles.card}>
+      {/* Colored top bar indicating market */}
+      <View style={[styles.marketBar, { backgroundColor: marketColor }]}>
+        <Text style={styles.marketBarText}>{MARKET_LABELS[item.market] ?? item.market}</Text>
+      </View>
       <View style={styles.cardRow}>
         {item.imageUrl ? (
           <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="contain" />
@@ -170,9 +175,6 @@ function DiscountCard({ item }: { item: DiscountMatch }) {
           <View style={styles.imagePlaceholder} />
         )}
         <View style={styles.cardInfo}>
-          <View style={[styles.badge, { backgroundColor: MARKET_COLORS[item.market] ?? '#888' }]}>
-            <Text style={styles.badgeText}>{MARKET_LABELS[item.market] ?? item.market}</Text>
-          </View>
           <Text style={styles.cardQuery}>voor: {item.productQuery}</Text>
           <Text style={styles.cardTitle}>{item.title}</Text>
           <View style={styles.priceRow}>
@@ -209,15 +211,15 @@ const styles = StyleSheet.create({
     marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0',
     overflow: 'hidden',
   },
+  marketBar: {
+    paddingHorizontal: 12, paddingVertical: 5,
+    flexDirection: 'row', alignItems: 'center',
+  },
+  marketBarText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 0.3 },
   cardRow: { flexDirection: 'row', padding: 12, gap: 12 },
   image: { width: 72, height: 72, borderRadius: 8, backgroundColor: '#F8F8F8' },
   imagePlaceholder: { width: 72, height: 72, borderRadius: 8, backgroundColor: '#F0F0F0' },
   cardInfo: { flex: 1, gap: 4 },
-  badge: {
-    alignSelf: 'flex-start', paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 5, marginBottom: 2,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
   cardQuery: { fontSize: 11, color: '#BDBDBD' },
   cardTitle: { fontSize: 14, fontWeight: '600', color: '#1A1A1A', lineHeight: 18 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },

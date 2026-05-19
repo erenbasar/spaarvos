@@ -1,17 +1,15 @@
 import axios from 'axios';
+import { DiscountMatch } from './types';
 
-const API_URL = 'http://localhost:3000/api';
+// Use your machine's local IP so Expo Go on a real device can reach the backend
+export const API_HOST = '192.168.2.25';
+const API_URL = `http://${API_HOST}:3000/api`;
 
-export const api = axios.create({ baseURL: API_URL });
+export const api = axios.create({ baseURL: API_URL, timeout: 15000 });
 
-export const getList = (userId: string) =>
-  api.get<{ products: string[] }>(`/list/${userId}`).then((r) => r.data.products);
-
-export const addToList = (userId: string, product: string, pushToken: string) =>
-  api.patch(`/list/${userId}/add`, { product, pushToken });
-
-export const removeFromList = (userId: string, product: string) =>
-  api.patch(`/list/${userId}/remove`, { product });
-
-export const getDiscounts = () =>
-  api.get('/products/discounts').then((r) => r.data);
+export async function getDiscountsForProducts(products: string[]): Promise<DiscountMatch[]> {
+  if (products.length === 0) return [];
+  const q = products.join(',');
+  const res = await api.get<{ count: number; items: DiscountMatch[] }>(`/products/discounts?q=${encodeURIComponent(q)}`);
+  return res.data.items;
+}

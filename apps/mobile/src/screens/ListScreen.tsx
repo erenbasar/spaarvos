@@ -1,12 +1,38 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DUTCH_PRODUCTS } from '../data/dutchProducts';
 
 const STORAGE_KEY = 'spaarvos_list';
+
+function DeleteRow({ item, onDelete }: { item: string; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  function handlePress() {
+    if (confirming) {
+      onDelete();
+    } else {
+      setConfirming(true);
+      setTimeout(() => setConfirming(false), 2000);
+    }
+  }
+
+  return (
+    <View style={styles.item}>
+      <Text style={styles.itemText}>{item}</Text>
+      <TouchableOpacity
+        style={[styles.deleteBtn, confirming && styles.deleteBtnConfirm]}
+        onPress={handlePress}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Text style={styles.deleteBtnText}>{confirming ? 'Zeker?' : '✕'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function ListScreen() {
   const [products, setProducts] = useState<string[]>([]);
@@ -27,10 +53,7 @@ export default function ListScreen() {
 
   function handleInputChange(text: string) {
     setInput(text);
-    if (text.length < 2) {
-      setSuggestions([]);
-      return;
-    }
+    if (text.length < 2) { setSuggestions([]); return; }
     const lower = text.toLowerCase();
     const matches = DUTCH_PRODUCTS.filter(
       (p) => p.toLowerCase().includes(lower) && !products.includes(p)
@@ -46,14 +69,8 @@ export default function ListScreen() {
     setSuggestions([]);
   }
 
-  function handleRemove(product: string) {
-    Alert.alert('Verwijderen', `"${product}" verwijderen uit je lijst?`, [
-      { text: 'Annuleren', style: 'cancel' },
-      {
-        text: 'Verwijderen', style: 'destructive',
-        onPress: () => saveList(products.filter((p) => p !== product)),
-      },
-    ]);
+  function handleDelete(product: string) {
+    saveList(products.filter((p) => p !== product));
   }
 
   return (
@@ -63,6 +80,9 @@ export default function ListScreen() {
     >
       <View style={styles.container}>
         <Text style={styles.title}>Mijn lijst</Text>
+        {products.length > 0 && (
+          <Text style={styles.subtitle}>{products.length} product{products.length !== 1 ? 'en' : ''}</Text>
+        )}
 
         <View style={styles.inputRow}>
           <TextInput
@@ -97,14 +117,16 @@ export default function ListScreen() {
           data={products}
           keyExtractor={(item) => item}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.item} onLongPress={() => handleRemove(item)}>
-              <Text style={styles.itemText}>{item}</Text>
-              <Text style={styles.hint}>Ingedrukt houden om te verwijderen</Text>
-            </TouchableOpacity>
+            <DeleteRow item={item} onDelete={() => handleDelete(item)} />
           )}
           ListEmptyComponent={
-            <Text style={styles.empty}>Nog geen producten. Voeg iets toe hierboven.</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>🛒</Text>
+              <Text style={styles.emptyText}>Nog geen producten.</Text>
+              <Text style={styles.emptyHint}>Typ hierboven om te beginnen.</Text>
+            </View>
           }
         />
       </View>
@@ -114,8 +136,9 @@ export default function ListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAF7', padding: 20, paddingTop: 60 },
-  title: { fontSize: 28, fontWeight: '700', color: '#1A1A1A', marginBottom: 24 },
-  inputRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  title: { fontSize: 28, fontWeight: '700', color: '#1A1A1A', marginBottom: 2 },
+  subtitle: { fontSize: 13, color: '#888', marginBottom: 16 },
+  inputRow: { flexDirection: 'row', gap: 10, marginBottom: 4, marginTop: 16 },
   input: {
     flex: 1, borderWidth: 1.5, borderColor: '#E0E0E0',
     borderRadius: 12, padding: 12, fontSize: 16, backgroundColor: '#fff',
@@ -129,15 +152,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 12, borderWidth: 1,
     borderColor: '#E0E0E0', marginBottom: 12, overflow: 'hidden',
   },
-  suggestionItem: {
-    padding: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-  },
+  suggestionItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
   suggestionText: { fontSize: 15, color: '#1A1A1A' },
   item: {
     backgroundColor: '#fff', padding: 16, borderRadius: 12,
-    marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0',
+    marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  itemText: { fontSize: 16, color: '#1A1A1A' },
-  hint: { fontSize: 11, color: '#BDBDBD', marginTop: 2 },
-  empty: { textAlign: 'center', color: '#BDBDBD', marginTop: 60, fontSize: 15 },
+  itemText: { fontSize: 16, color: '#1A1A1A', flex: 1 },
+  deleteBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center',
+  },
+  deleteBtnConfirm: { backgroundColor: '#E8572A' },
+  deleteBtnText: { fontSize: 11, fontWeight: '700', color: '#888' },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyIcon: { fontSize: 40, marginBottom: 8 },
+  emptyText: { fontSize: 16, color: '#BDBDBD', fontWeight: '500' },
+  emptyHint: { fontSize: 13, color: '#BDBDBD', marginTop: 4 },
 });

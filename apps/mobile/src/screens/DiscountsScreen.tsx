@@ -50,6 +50,7 @@ async function findDiscounts(products: string[]): Promise<DiscountMatch[]> {
         productQuery: product,
         title: d.name,
         currentPrice: d.price,
+        priceBeforeBonus: d.oldPrice,
         imageUrl: d.imageUrl,
       });
     }

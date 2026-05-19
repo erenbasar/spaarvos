@@ -39,9 +39,11 @@ async function findDiscounts(products: string[]): Promise<DiscountMatch[]> {
       });
     }
     const lower = product.toLowerCase();
-    const dirkMatches = (dirkItems as DirkProduct[]).filter((d) =>
-      d.name.toLowerCase().includes(lower)
-    );
+    const dirkMatches = (dirkItems as DirkProduct[]).filter((d) => {
+      const dLower = d.name.toLowerCase();
+      // Match if either contains the other (handles both "Broccoli" ↔ "AH Broccoli bio")
+      return dLower.includes(lower) || lower.includes(dLower);
+    });
     for (const d of dirkMatches.slice(0, 2)) {
       results.push({
         market: 'dirk',

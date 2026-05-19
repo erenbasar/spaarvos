@@ -35,7 +35,10 @@ TaskManager.defineTask(DISCOUNT_TASK, async () => {
         matchMap[product].add('Albert Heijn');
       }
       const lower = product.toLowerCase();
-      const dirkMatch = dirkItems.some((d) => d.name.toLowerCase().includes(lower));
+      const dirkMatch = dirkItems.some((d) => {
+        const dLower = d.name.toLowerCase();
+        return dLower.includes(lower) || lower.includes(dLower);
+      });
       if (dirkMatch) {
         if (!matchMap[product]) matchMap[product] = new Set();
         matchMap[product].add('Dirk');

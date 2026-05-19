@@ -13,3 +13,20 @@ export async function getDiscountsForProducts(products: string[]): Promise<Disco
   const res = await api.get<{ count: number; items: DiscountMatch[] }>(`/products/discounts?q=${encodeURIComponent(q)}`);
   return res.data.items;
 }
+
+export interface AHProduct {
+  webshopId: number;
+  title: string;
+  brand?: string;
+  salesUnitSize?: string;
+  isBonus: boolean;
+  currentPrice: number | null;
+  priceBeforeBonus: number | null;
+  images: { url: string }[];
+}
+
+export async function searchProducts(query: string): Promise<AHProduct[]> {
+  if (query.length < 2) return [];
+  const res = await api.get<{ count: number; items: AHProduct[] }>(`/products/search?q=${encodeURIComponent(query)}`);
+  return res.data.items.slice(0, 6);
+}

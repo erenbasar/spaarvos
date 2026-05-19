@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform, Animated,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DUTCH_PRODUCTS } from '../data/dutchProducts';
+import { searchProducts, AHProduct } from '../services/api';
 
 const STORAGE_KEY = 'spaarvos_list';
 
@@ -28,7 +28,9 @@ function DeleteRow({ item, onDelete }: { item: string; onDelete: () => void }) {
         onPress={handlePress}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.deleteBtnText}>{confirming ? 'Zeker?' : '✕'}</Text>
+        <Text style={[styles.deleteBtnText, confirming && styles.deleteBtnTextConfirm]}>
+          {confirming ? 'Zeker?' : '✕'}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -37,7 +39,9 @@ function DeleteRow({ item, onDelete }: { item: string; onDelete: () => void }) {
 export default function ListScreen() {
   const [products, setProducts] = useState<string[]>([]);
   const [input, setInput] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<AHProduct[]>([]);
+  const [searching, setSearching] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { loadList(); }, []);
 
@@ -51,18 +55,32 @@ export default function ListScreen() {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   }
 
-  function handleInputChange(text: string) {
+  const handleInputChange = useCallback((text: string) => {
     setInput(text);
-    if (text.length < 2) { setSuggestions([]); return; }
-    const lower = text.toLowerCase();
-    const matches = DUTCH_PRODUCTS.filter(
-      (p) => p.toLowerCase().includes(lower) && !products.includes(p)
-    ).slice(0, 5);
-    setSuggestions(matches);
-  }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-  function handleAdd(value?: string) {
-    const trimmed = (value ?? input).trim();
+    if (text.length < 2) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchProducts(text);
+        // filter out already-added products
+        setSuggestions(results.filter((r) => !products.includes(r.title)));
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 400);
+  }, [products]);
+
+  function handleAdd(title: string) {
+    const trimmed = title.trim();
     if (!trimmed || products.includes(trimmed)) return;
     saveList([...products, trimmed]);
     setInput('');
@@ -81,33 +99,63 @@ export default function ListScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Mijn lijst</Text>
         {products.length > 0 && (
-          <Text style={styles.subtitle}>{products.length} product{products.length !== 1 ? 'en' : ''}</Text>
+          <Text style={styles.subtitle}>
+            {products.length} product{products.length !== 1 ? 'en' : ''}
+          </Text>
         )}
 
         <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            value={input}
-            onChangeText={handleInputChange}
-            placeholder="Product toevoegen..."
-            onSubmitEditing={() => handleAdd()}
-            returnKeyType="done"
-            autoCorrect={false}
-          />
-          <TouchableOpacity style={styles.addBtn} onPress={() => handleAdd()}>
-            <Text style={styles.addBtnText}>+</Text>
-          </TouchableOpacity>
+          <View style={styles.inputWrap}>
+            <TextInput
+              style={styles.input}
+              value={input}
+              onChangeText={handleInputChange}
+              placeholder="Zoek een product... (bijv. De Cecco)"
+              onSubmitEditing={() => input.trim() && handleAdd(input)}
+              returnKeyType="done"
+              autoCorrect={false}
+            />
+            {searching && (
+              <ActivityIndicator
+                style={styles.inputSpinner}
+                size="small"
+                color="#BDBDBD"
+              />
+            )}
+          </View>
         </View>
 
         {suggestions.length > 0 && (
           <View style={styles.suggestions}>
             {suggestions.map((s) => (
               <TouchableOpacity
-                key={s}
+                key={s.webshopId}
                 style={styles.suggestionItem}
-                onPress={() => handleAdd(s)}
+                onPress={() => handleAdd(s.title)}
               >
-                <Text style={styles.suggestionText}>{s}</Text>
+                {s.images?.[0]?.url ? (
+                  <Image
+                    source={{ uri: s.images[0].url }}
+                    style={styles.suggestionImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={styles.suggestionImagePlaceholder} />
+                )}
+                <View style={styles.suggestionInfo}>
+                  <Text style={styles.suggestionTitle} numberOfLines={1}>{s.title}</Text>
+                  <View style={styles.suggestionMeta}>
+                    {s.salesUnitSize ? (
+                      <Text style={styles.suggestionSize}>{s.salesUnitSize}</Text>
+                    ) : null}
+                    {s.isBonus && (
+                      <View style={styles.bonusBadge}>
+                        <Text style={styles.bonusBadgeText}>bonus</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+                <Text style={styles.addIcon}>+</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -118,6 +166,7 @@ export default function ListScreen() {
           keyExtractor={(item) => item}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          style={{ marginTop: suggestions.length > 0 ? 8 : 0 }}
           renderItem={({ item }) => (
             <DeleteRow item={item} onDelete={() => handleDelete(item)} />
           )}
@@ -125,7 +174,7 @@ export default function ListScreen() {
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🛒</Text>
               <Text style={styles.emptyText}>Nog geen producten.</Text>
-              <Text style={styles.emptyHint}>Typ hierboven om te beginnen.</Text>
+              <Text style={styles.emptyHint}>Zoek hierboven om te beginnen.</Text>
             </View>
           }
         />
@@ -138,22 +187,30 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAF7', padding: 20, paddingTop: 60 },
   title: { fontSize: 28, fontWeight: '700', color: '#1A1A1A', marginBottom: 2 },
   subtitle: { fontSize: 13, color: '#888', marginBottom: 16 },
-  inputRow: { flexDirection: 'row', gap: 10, marginBottom: 4, marginTop: 16 },
+  inputRow: { marginTop: 16, marginBottom: 4 },
+  inputWrap: { position: 'relative' },
   input: {
-    flex: 1, borderWidth: 1.5, borderColor: '#E0E0E0',
-    borderRadius: 12, padding: 12, fontSize: 16, backgroundColor: '#fff',
+    borderWidth: 1.5, borderColor: '#E0E0E0', borderRadius: 12,
+    padding: 12, paddingRight: 40, fontSize: 16, backgroundColor: '#fff',
   },
-  addBtn: {
-    backgroundColor: '#E8572A', borderRadius: 12,
-    width: 48, alignItems: 'center', justifyContent: 'center',
-  },
-  addBtnText: { color: '#fff', fontSize: 24, fontWeight: '600' },
+  inputSpinner: { position: 'absolute', right: 12, top: 14 },
   suggestions: {
     backgroundColor: '#fff', borderRadius: 12, borderWidth: 1,
-    borderColor: '#E0E0E0', marginBottom: 12, overflow: 'hidden',
+    borderColor: '#E0E0E0', marginBottom: 4, overflow: 'hidden',
   },
-  suggestionItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
-  suggestionText: { fontSize: 15, color: '#1A1A1A' },
+  suggestionItem: {
+    flexDirection: 'row', alignItems: 'center', padding: 10,
+    borderBottomWidth: 1, borderBottomColor: '#F5F5F5', gap: 10,
+  },
+  suggestionImage: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#F8F8F8' },
+  suggestionImagePlaceholder: { width: 44, height: 44, borderRadius: 6, backgroundColor: '#F0F0F0' },
+  suggestionInfo: { flex: 1 },
+  suggestionTitle: { fontSize: 14, fontWeight: '500', color: '#1A1A1A' },
+  suggestionMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  suggestionSize: { fontSize: 11, color: '#BDBDBD' },
+  bonusBadge: { backgroundColor: '#FFF3E0', paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
+  bonusBadgeText: { fontSize: 10, fontWeight: '700', color: '#E65100' },
+  addIcon: { fontSize: 20, color: '#E8572A', fontWeight: '600', paddingHorizontal: 4 },
   item: {
     backgroundColor: '#fff', padding: 16, borderRadius: 12,
     marginBottom: 8, borderWidth: 1, borderColor: '#F0F0F0',
@@ -166,6 +223,7 @@ const styles = StyleSheet.create({
   },
   deleteBtnConfirm: { backgroundColor: '#E8572A' },
   deleteBtnText: { fontSize: 11, fontWeight: '700', color: '#888' },
+  deleteBtnTextConfirm: { color: '#fff' },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyIcon: { fontSize: 40, marginBottom: 8 },
   emptyText: { fontSize: 16, color: '#BDBDBD', fontWeight: '500' },

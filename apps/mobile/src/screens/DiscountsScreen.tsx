@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, StyleSheet, ActivityIndicator,
   RefreshControl, Image, TouchableOpacity,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { getDiscountsForProducts } from '../services/api';
 import { DiscountMatch } from '../services/types';
 
@@ -47,7 +48,7 @@ export default function DiscountsScreen() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   function onRefresh() {
     setRefreshing(true);

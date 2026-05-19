@@ -1,40 +1,50 @@
 import axios from 'axios';
 
-const AH_AUTH_URL = 'https://api.ah.nl/mobile-auth/v1/auth/token/anonymous';
-const AH_BONUS_URL = 'https://api.ah.nl/mobile-services/bonuspage/v1/bonus';
+const AUTH_URL = 'https://api.ah.nl/mobile-auth/v1/auth/token/anonymous';
+const SEARCH_URL = 'https://api.ah.nl/mobile-services/product/search/v2';
 
-interface AHToken {
-  access_token: string;
-}
-
-interface AHBonus {
-  productId: number;
+export interface AHProduct {
+  webshopId: number;
   title: string;
-  description?: string;
-  discountType: string;
-  bonusStartDate: string;
-  bonusEndDate: string;
-  image?: string;
+  isBonus: boolean;
+  currentPrice: number | null;
+  priceBeforeBonus: number | null;
+  discountType: string | null;
+  bonusStartDate: string | null;
+  bonusEndDate: string | null;
+  bonusMechanism: string | null;
+  images: { url: string }[];
+  mainCategory: string;
 }
+
+let cachedToken: string | null = null;
+let tokenExpiry = 0;
 
 async function getToken(): Promise<string> {
-  const res = await axios.post<AHToken>(
-    AH_AUTH_URL,
+  if (cachedToken && Date.now() < tokenExpiry) return cachedToken;
+  const res = await axios.post<{ access_token: string }>(
+    AUTH_URL,
     { clientId: 'appie' },
     { headers: { 'Content-Type': 'application/json' } }
   );
-  return res.data.access_token;
+  cachedToken = res.data.access_token;
+  tokenExpiry = Date.now() + 55 * 60 * 1000; // 55 min
+  return cachedToken;
 }
 
-export async function fetchAHDiscounts(): Promise<AHBonus[]> {
-  try {
-    const token = await getToken();
-    const res = await axios.get<{ bonuses: AHBonus[] }>(AH_BONUS_URL, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return res.data.bonuses ?? [];
-  } catch (err) {
-    console.error('[AH] Failed to fetch discounts:', err);
-    return [];
-  }
+export async function searchAHProducts(query: string): Promise<AHProduct[]> {
+  const token = await getToken();
+  const res = await axios.get<{ products: AHProduct[] }>(SEARCH_URL, {
+    params: { query, sortOn: 'RELEVANCE', size: 20 },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-application': 'AHWEBSHOP',
+    },
+  });
+  return res.data.products ?? [];
+}
+
+export async function searchAHBonusProducts(query: string): Promise<AHProduct[]> {
+  const products = await searchAHProducts(query);
+  return products.filter((p) => p.isBonus && p.currentPrice !== null);
 }

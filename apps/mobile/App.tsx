@@ -19,12 +19,12 @@ export default function App() {
         }}
       >
         <Tab.Screen
-          name="Liste"
+          name="Mijn lijst"
           component={ListScreen}
           options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🛒</Text> }}
         />
         <Tab.Screen
-          name="İndirimler"
+          name="Aanbiedingen"
           component={DiscountsScreen}
           options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 20, color }}>🏷️</Text> }}
         />

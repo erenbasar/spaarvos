@@ -35,7 +35,7 @@ export default function DiscountsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bu Haftanın İndirimleri</Text>
+      <Text style={styles.title}>Aanbiedingen</Text>
       <FlatList
         data={items}
         keyExtractor={(item, i) => `${item.market}-${i}`}
@@ -50,7 +50,7 @@ export default function DiscountsScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.empty}>İndirim verisi yüklenemedi.</Text>
+          <Text style={styles.empty}>Geen aanbiedingen gevonden.</Text>
         }
       />
     </View>

@@ -34,6 +34,7 @@ export interface AHProduct {
   isBonus: boolean;
   currentPrice: number | null;
   priceBeforeBonus: number | null;
+  bonusMechanism: string | null;
   discountType: string | null;
   images: { url: string }[];
 }
@@ -50,5 +51,5 @@ export async function searchAH(query: string): Promise<AHProduct[]> {
 
 export async function searchAHBonus(query: string): Promise<AHProduct[]> {
   const products = await searchAH(query);
-  return products.filter((p) => p.isBonus && p.currentPrice !== null);
+  return products.filter((p) => p.isBonus);
 }

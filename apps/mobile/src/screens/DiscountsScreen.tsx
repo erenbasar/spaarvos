@@ -12,8 +12,9 @@ interface DiscountMatch {
   market: 'ah' | 'dirk';
   productQuery: string;
   title: string;
-  currentPrice: number;
+  currentPrice: number | null;
   priceBeforeBonus?: number;
+  bonusMechanism?: string | null;
   imageUrl?: string;
 }
 
@@ -31,8 +32,9 @@ async function findDiscounts(products: string[]): Promise<DiscountMatch[]> {
         market: 'ah',
         productQuery: product,
         title: p.title,
-        currentPrice: p.currentPrice!,
+        currentPrice: p.currentPrice,
         priceBeforeBonus: p.priceBeforeBonus ?? undefined,
+        bonusMechanism: p.bonusMechanism,
         imageUrl: p.images?.[0]?.url,
       });
     }
@@ -158,13 +160,12 @@ export default function DiscountsScreen() {
 }
 
 function DiscountCard({ item }: { item: DiscountMatch }) {
-  const hasDiscount = item.priceBeforeBonus != null && item.priceBeforeBonus > item.currentPrice;
-  const savings = hasDiscount ? (item.priceBeforeBonus! - item.currentPrice).toFixed(2) : null;
+  const hasDiscount = item.currentPrice != null && item.priceBeforeBonus != null && item.priceBeforeBonus > item.currentPrice;
+  const savings = hasDiscount ? (item.priceBeforeBonus! - item.currentPrice!).toFixed(2) : null;
   const marketColor = MARKET_COLORS[item.market] ?? '#888';
 
   return (
     <View style={styles.card}>
-      {/* Colored top bar indicating market */}
       <View style={[styles.marketBar, { backgroundColor: marketColor }]}>
         <Text style={styles.marketBarText}>{MARKET_LABELS[item.market] ?? item.market}</Text>
       </View>
@@ -178,7 +179,11 @@ function DiscountCard({ item }: { item: DiscountMatch }) {
           <Text style={styles.cardQuery}>voor: {item.productQuery}</Text>
           <Text style={styles.cardTitle}>{item.title}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.currentPrice}>€{item.currentPrice.toFixed(2)}</Text>
+            {item.currentPrice != null ? (
+              <Text style={styles.currentPrice}>€{item.currentPrice.toFixed(2)}</Text>
+            ) : item.priceBeforeBonus != null ? (
+              <Text style={styles.currentPrice}>€{item.priceBeforeBonus.toFixed(2)}</Text>
+            ) : null}
             {hasDiscount && (
               <>
                 <Text style={styles.oldPrice}>€{item.priceBeforeBonus!.toFixed(2)}</Text>
@@ -188,6 +193,11 @@ function DiscountCard({ item }: { item: DiscountMatch }) {
               </>
             )}
           </View>
+          {item.bonusMechanism && (
+            <View style={styles.mechanismBadge}>
+              <Text style={styles.mechanismText}>{item.bonusMechanism}</Text>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -227,4 +237,6 @@ const styles = StyleSheet.create({
   oldPrice: { fontSize: 13, color: '#BDBDBD', textDecorationLine: 'line-through' },
   savingsBadge: { backgroundColor: '#E8F5E9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   savingsText: { fontSize: 11, fontWeight: '700', color: '#2E7D32' },
+  mechanismBadge: { alignSelf: 'flex-start', backgroundColor: '#FFF3E0', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, marginTop: 4 },
+  mechanismText: { fontSize: 11, fontWeight: '700', color: '#E65100' },
 });

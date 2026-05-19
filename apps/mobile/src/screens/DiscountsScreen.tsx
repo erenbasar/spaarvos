@@ -5,8 +5,54 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { getDiscountsForProducts } from '../services/api';
-import { DiscountMatch } from '../services/types';
+import { searchAHBonus, AHProduct } from '../services/ahService';
+import { fetchDirkDiscounts, DirkProduct } from '../services/dirkService';
+
+interface DiscountMatch {
+  market: 'ah' | 'dirk';
+  productQuery: string;
+  title: string;
+  currentPrice: number;
+  priceBeforeBonus?: number;
+  imageUrl?: string;
+}
+
+async function findDiscounts(products: string[]): Promise<DiscountMatch[]> {
+  const results: DiscountMatch[] = [];
+  const [dirkItems, ...ahResults] = await Promise.all([
+    fetchDirkDiscounts(),
+    ...products.map((p) => searchAHBonus(p).catch(() => [] as AHProduct[])),
+  ]);
+
+  products.forEach((product, i) => {
+    const ahBonus = ahResults[i] ?? [];
+    for (const p of ahBonus.slice(0, 2)) {
+      results.push({
+        market: 'ah',
+        productQuery: product,
+        title: p.title,
+        currentPrice: p.currentPrice!,
+        priceBeforeBonus: p.priceBeforeBonus ?? undefined,
+        imageUrl: p.images?.[0]?.url,
+      });
+    }
+    const lower = product.toLowerCase();
+    const dirkMatches = (dirkItems as DirkProduct[]).filter((d) =>
+      d.name.toLowerCase().includes(lower)
+    );
+    for (const d of dirkMatches.slice(0, 2)) {
+      results.push({
+        market: 'dirk',
+        productQuery: product,
+        title: d.name,
+        currentPrice: d.price,
+        imageUrl: d.imageUrl,
+      });
+    }
+  });
+
+  return results;
+}
 
 const STORAGE_KEY = 'spaarvos_list';
 
@@ -38,7 +84,7 @@ export default function DiscountsScreen() {
         setItems([]);
         return;
       }
-      const discounts = await getDiscountsForProducts(products);
+      const discounts = await findDiscounts(products);
       setItems(discounts);
     } catch {
       setError('Kon aanbiedingen niet laden. Controleer of de server actief is.');

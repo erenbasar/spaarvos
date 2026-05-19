@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text } from 'react-native';
 import ListScreen from './src/screens/ListScreen';
 import DiscountsScreen from './src/screens/DiscountsScreen';
+import { registerDiscountTask } from './src/tasks/discountTask';
+import './src/tasks/discountTask'; // ensure TaskManager.defineTask is called on load
 
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  useEffect(() => {
+    registerDiscountTask();
+  }, []);
+
   return (
     <NavigationContainer>
       <Tab.Navigator

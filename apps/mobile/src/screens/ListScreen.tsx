@@ -4,7 +4,7 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { searchProducts, AHProduct } from '../services/api';
+import { searchAH, AHProduct } from '../services/ahService';
 
 const STORAGE_KEY = 'spaarvos_list';
 
@@ -68,7 +68,7 @@ export default function ListScreen() {
     setSearching(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await searchProducts(text);
+        const results = await searchAH(text);
         // filter out already-added products
         setSuggestions(results.filter((r) => !products.includes(r.title)));
       } catch {
